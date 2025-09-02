@@ -15,9 +15,9 @@ export default function Home() {
     <div className="flex items-center justify-center h-screen bg-gray-100">
       {step === 1 && (
         <Step1
-          onNext={(r, c) => {
-            setRows(r => r > 0 ? r : 0);
-            setCols(c => c > 0 ? c : 0);
+          onNext={(row, column) => {
+            setRows(r => r > 0 ? row : 0);
+            setCols(c => c > 0 ? column : 0);
             setStep(2);
           }}
         />
