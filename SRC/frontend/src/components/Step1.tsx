@@ -16,9 +16,9 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
       setError(`O número de ${type} não pode ser menor que 1.`)
       return "1"
     }
-    if (num > 60) {
-      setError(`O número de ${type} não pode ser maior que 60.`)
-      return "60"
+    if (num > 200) {
+      setError(`O número de ${type} não pode ser maior que 200.`)
+      return "200"
     }
     setError(null)
     return String(num)
@@ -49,7 +49,7 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
           onBlur={() => setRows(clampValue(rows, "linhas"))}
           className="w-full border p-2 rounded"
           min={1}
-          max={60}
+          max={200}
         />
       </label>
 
@@ -62,7 +62,7 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
           onBlur={() => setCols(clampValue(cols, "colunas"))}
           className="w-full border p-2 rounded"
           min={1}
-          max={60}
+          max={200}
         />
       </label>
 
