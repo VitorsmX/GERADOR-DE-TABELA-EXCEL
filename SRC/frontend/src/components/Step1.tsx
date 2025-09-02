@@ -71,8 +71,9 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
       )}
 
       <button
+        disabled={!!error}
         onClick={handleNext}
-        className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700"
+        className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-zinc-500 disabled:hover:bg-zinc-400"
       >
         Próxima Etapa
       </button>
