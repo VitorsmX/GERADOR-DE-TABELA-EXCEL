@@ -17,6 +17,7 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
           onChange={(e) => setRows(Number(e.target.value))}
           className="w-full border p-2 rounded"
           min={1}
+          max={50}
         />
       </label>
 
@@ -28,6 +29,7 @@ export default function Step1({ onNext }: { onNext: (rows: number, cols: number)
           onChange={(e) => setCols(Number(e.target.value))}
           className="w-full border p-2 rounded"
           min={1}
+          max={50}
         />
       </label>
 
