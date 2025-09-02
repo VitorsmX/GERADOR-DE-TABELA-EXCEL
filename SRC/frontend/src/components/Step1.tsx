@@ -2,8 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 
 export default function Step1({ onNext }: { onNext: (rows: number, cols: number) => void }) {
-  const [rows, setRows] = useState<number | "">("5");
-  const [cols, setCols] = useState<number | "">("3");
+  const [rows, setRows] = useState<number | "">(5);
+  const [cols, setCols] = useState<number | "">(3);
   const [error, setError] = useState<string | null>(null);
 
   // Limpa timeout para evitar memory leaks
