@@ -16,8 +16,8 @@ export default function Home() {
       {step === 1 && (
         <Step1
           onNext={(row, column) => {
-            setRows(r => r > 0 ? row : 0);
-            setCols(c => c > 0 ? column : 0);
+            setRows(row);
+            setCols(column);
             setStep(2);
           }}
         />
