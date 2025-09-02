@@ -152,7 +152,7 @@ export default function EditableTable({
                   return (
                     <td
                       key={c}
-                      className="border p-2 relative"
+                      className="border p-2 relative min-w-[130px]"
                       rowSpan={cell.rowSpan}
                       colSpan={cell.colSpan}
                     >
