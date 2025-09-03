@@ -6,6 +6,9 @@ export type Step4Props = {
   data: TableCell[][];
 };
 
-export type FormulaCell = TableCell & {
-  isFormula?: boolean;
+export type TableCellWithDisplay = TableCell & {
+  displayValue?: string | number | boolean;
 };
+
+// Step4.types.ts
+export type SelectedCell = { row: number; col: number } | null;

@@ -7,11 +7,7 @@ import {
   CellError as HFCellError,
 } from "hyperformula";
 import EditableTable from "@/components/table/editable-table";
-import { Step4Props } from "./Step4.types";
-import {
-  SelectedCell as SelectedCellBase,
-  TableCell,
-} from "@/components/table/editable-table/EditableTable.types";
+import { Step4Props, TableCellWithDisplay, SelectedCell } from "./Step4.types";
 import {
   containerClass,
   titleClass,
@@ -21,37 +17,19 @@ import {
 } from "./Step4.styles";
 
 import Editor from "react-simple-code-editor";
-import Prism from "prismjs";
-import ExcelJS from "exceljs";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
-import { HeaderGroup } from "../Step3/Step3.types";
 
-type SelectedCell = SelectedCellBase | null;
-type TableCellWithDisplay = TableCell & {
-  displayValue?: string | number | boolean;
-};
+import { toRawMatrix, highlightFormula, exportToExcel } from "./Step4.logic";
 
-const SHEET_NAME = "Planilha";
 const SHEET_ID = 0;
-
-function toRawCell(value: unknown): string | number | boolean | null {
-  if (value === undefined || value === null) return null;
-  if (typeof value === "number" || typeof value === "boolean") return value;
-  if (typeof value === "string") return value;
-  return String(value);
-}
-
-function toRawMatrix(data: TableCell[][]) {
-  return data.map((row) => row.map((cell) => toRawCell(cell.value)));
-}
 
 export default function Step4({
   headers: initialHeaders,
   data: initialData,
 }: Step4Props) {
   const [headers, setHeaders] = useState(initialHeaders);
-  const [data, setData] = useState<TableCell[][]>(initialData);
+  const [data, setData] = useState<TableCellWithDisplay[][]>(initialData);
   const [fileName, setFileName] = useState("");
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null);
   const [calculatedValue, setCalculatedValue] = useState<string>("");
@@ -59,6 +37,7 @@ export default function Step4({
 
   const hfRef = useRef<HyperFormula | null>(null);
 
+  // inicializa HyperFormula
   useEffect(() => {
     const hf = HyperFormula.buildFromArray(toRawMatrix(initialData), {
       licenseKey: "gpl-v3",
@@ -69,13 +48,6 @@ export default function Step4({
       hfRef.current = null;
     };
   }, [initialData]);
-
-  const highlight = useCallback((code: string) => {
-    if (code.startsWith("=")) {
-      return `<span style="color:green;font-weight:bold">${code}</span>`;
-    }
-    return Prism.highlight(code, Prism.languages.javascript, "javascript");
-  }, []);
 
   const handleValueChange = useCallback(
     (code: string) => {
@@ -97,9 +69,7 @@ export default function Step4({
     if (!selectedCell || !hfRef.current) return;
     const hf = hfRef.current;
 
-    // Atualiza o conteúdo do HF com os dados atuais
     hf.setSheetContent(SHEET_ID, toRawMatrix(data));
-
     const addr = {
       sheet: SHEET_ID,
       col: selectedCell.col,
@@ -107,21 +77,21 @@ export default function Step4({
     };
     const value: HFCellValue = hf.getCellValue(addr);
 
-    if (value === null) {
-      setCalculatedValue("");
-    } else if (value instanceof HFCellError) {
-      setCalculatedValue("#ERRO");
-    } else {
-      setCalculatedValue(String(value));
-    }
+    const display =
+      value === null
+        ? ""
+        : value instanceof HFCellError
+        ? "#ERRO"
+        : String(value);
+    setCalculatedValue(display);
 
-    // Atualiza displayValue da célula selecionada
+    // atualiza displayValue só na célula selecionada
     setData((prev) =>
       prev.map((row, rIdx) =>
         rIdx === selectedCell.row
           ? row.map((cell, cIdx) =>
               cIdx === selectedCell.col
-                ? { ...cell, displayValue: String(value ?? "") }
+                ? { ...cell, displayValue: display }
                 : cell
             )
           : row
@@ -129,133 +99,9 @@ export default function Step4({
     );
   }, [selectedCell, data]);
 
-  function shiftFormulaRows(formula: string, rowOffset: number) {
-    return formula.replace(/([A-Z]+)(\d+)/g, (_, col, row) => {
-      return `${col}${parseInt(row, 10) + rowOffset}`;
-    });
-  }
-
-  function parseIfNumber(val: unknown): string | number | boolean | null {
-    if (val === null || val === undefined) return null;
-    if (typeof val === "number" || typeof val === "boolean") return val;
-    if (typeof val === "string") {
-      const num = Number(val);
-      if (!isNaN(num) && val.trim() !== "") {
-        return num; // salva como número
-      }
-      return val; // mantém como string se não for número
-    }
-    return String(val);
-  }
-
-  const handleExport = useCallback(async () => {
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet(SHEET_NAME);
-  
-    // Converte HeaderGroup[] -> TableCell[][] (uma linha com colSpan e placeholders merged)
-    function headerGroupsToCells(headers: HeaderGroup[], totalCols: number): TableCell[][] {
-      const row: TableCell[] = [];
-      let col = 0;
-      headers.forEach((g) => {
-        const span = g.ids.length || 1;
-        // célula mestre
-        row[col] = { value: g.text ?? "", colSpan: span, rowSpan: 1 };
-        // placeholders "filhas" do merge de header
-        for (let i = 1; i < span; i++) {
-          row[col + i] = { value: "", merged: true };
-        }
-        col += span;
-      });
-      // garante comprimento total
-      while (row.length < totalCols) {
-        row.push({ value: "" });
-      }
-      return [row];
-    }
-  
-    const totalCols = data[0]?.length ?? 0;
-    const headerCells = headerGroupsToCells(headers, totalCols);
-    const headerRowsCount = headerCells.length; // normalmente 1
-  
-    // Monta todas as linhas: cabeçalho + corpo
-    const allRows: TableCell[][] = [...headerCells, ...data];
-  
-    // 1️⃣ Primeiro loop: escreve valores e estilos
-    allRows.forEach((row, r) => {
-      const excelRowNumber = r + 1;
-      const excelRow = sheet.getRow(excelRowNumber);
-  
-      row.forEach((cell, c) => {
-        const excelCell = excelRow.getCell(c + 1);
-  
-        if (!cell?.merged) {
-          if (typeof cell?.value === "string" && cell.value.startsWith("=")) {
-            const shifted = shiftFormulaRows(cell.value.slice(1), headerRowsCount);
-            excelCell.value = { formula: shifted };
-          } else {
-            excelCell.value = parseIfNumber(cell?.value);
-          }
-        } else {
-          excelCell.value = null; // filhas de merge ficam vazias
-        }
-  
-        // Estilo do cabeçalho
-        if (r < headerRowsCount) {
-          excelCell.font = { bold: true, color: { argb: "FFFFFFFF" }, name: "Calibri" };
-          excelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F81BD" } };
-        }
-        // Linhas alternadas no corpo
-        else if ((r - headerRowsCount) % 2 === 1) {
-          excelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
-        }
-  
-        excelCell.alignment = { horizontal: "center", vertical: "middle" };
-        excelCell.border = {
-          top: { style: "thin" },
-          bottom: { style: "thin" },
-          left: { style: "thin" },
-          right: { style: "thin" },
-        };
-      });
-    });
-  
-    // 2️⃣ Segundo loop: aplica merges
-    allRows.forEach((row, r) => {
-      const excelRowNumber = r + 1;
-      row.forEach((cell, c) => {
-        const rowSpan = cell?.rowSpan ?? 1;
-        const colSpan = cell?.colSpan ?? 1;
-        const isMaster = !cell?.merged && (rowSpan > 1 || colSpan > 1);
-  
-        if (isMaster) {
-          sheet.mergeCells(
-            excelRowNumber,
-            c + 1,
-            excelRowNumber + rowSpan - 1,
-            c + colSpan
-          );
-        }
-      });
-    });
-  
-    // Largura das colunas
-    sheet.columns.forEach((col) => {
-      col.width = 20;
-    });
-  
-    // Gera e baixa o arquivo
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${fileName.trim() || "tabela"}-${new Date().toISOString().split("T")[0]}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleExport = useCallback(() => {
+    exportToExcel(headers, data, fileName);
   }, [headers, data, fileName]);
-  
 
   return (
     <div className={containerClass}>
@@ -263,7 +109,7 @@ export default function Step4({
 
       <EditableTable
         headers={headers}
-        data={data as TableCellWithDisplay[][]}
+        data={data}
         setHeaders={setHeaders}
         setData={setData}
         selectedCell={selectedCell}
@@ -281,7 +127,7 @@ export default function Step4({
               : ""
           }
           onValueChange={handleValueChange}
-          highlight={highlight}
+          highlight={highlightFormula} // ✅ aqui
           padding={10}
           style={{
             fontFamily: '"Fira code", "Fira Mono", monospace',

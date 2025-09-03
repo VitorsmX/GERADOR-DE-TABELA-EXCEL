@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { EditableTableProps } from "./EditableTable.types";
 import {
   containerClass,
@@ -17,6 +17,8 @@ import {
   mergeColumnsLogic,
   mergeRowsLogic,
   mergeBlockLogic,
+  persistToStorage,
+  loadFromStorage,
 } from "./EditableTable.logic";
 
 import EditableCell from "@/components/table/TableCell";
@@ -29,12 +31,28 @@ export default function EditableTable({
   selectedCell,
   setSelectedCell,
 }: EditableTableProps) {
+  // ---- Persistência ----
+  useEffect(() => {
+    const stored = loadFromStorage();
+    if (stored) {
+      setHeaders(stored.headers);
+      setData(stored.rows);
+    }
+  }, [setHeaders, setData]);
+  
+  useEffect(() => {
+    persistToStorage({ headers, rows: data });
+  }, [headers, data]);
+  
+
+  // ---- Ações ----
   const updateCell = useCallback(
     (r: number, c: number, value: string) => {
       setData((prev) => updateCellLogic(prev, r, c, value));
     },
     [setData]
   );
+
   const insertRow = useCallback(
     (rowIndex: number, pos: "above" | "below") => {
       setData((prev) => insertRowLogic(prev, rowIndex, pos));
@@ -62,7 +80,7 @@ export default function EditableTable({
     },
     [data, headers, setData, setHeaders]
   );
-  
+
   const removeColumn = useCallback(
     (colIndex: number) => {
       const { data: newData, headers: newHeaders } = removeColumnLogic(
@@ -75,7 +93,6 @@ export default function EditableTable({
     },
     [data, headers, setData, setHeaders]
   );
-  
 
   const mergeColumns = useCallback(
     (row: number, startCol: number, endCol: number) => {
@@ -100,6 +117,7 @@ export default function EditableTable({
     [setData]
   );
 
+  // ---- Render ----
   return (
     <div className={containerClass}>
       <div className={tableWrapperClass}>

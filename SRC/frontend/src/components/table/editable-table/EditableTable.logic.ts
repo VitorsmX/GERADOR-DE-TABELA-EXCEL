@@ -1,8 +1,20 @@
+// EditableTable.logic.ts
+
 import { HeaderGroup } from "@/components/Step3/Step3.types";
 import { TableCell } from "@/components/table/editable-table/EditableTable.types";
 
+/**
+ * ATENÇÃO:
+ * - Não redefina TableCell/HeaderGroup aqui; use os importados.
+ *   TableCell deve aceitar: value: string; merged?: boolean; rowSpan?: number; colSpan?: number;
+ */
+
+// ----------------------- Utilidades gerais -----------------------
+
+const STORAGE_KEY = "editable-table-data";
+
 // total de colunas do corpo (soma dos colSpans dos headers)
-const totalCols = (headers: HeaderGroup[]) =>
+export const totalCols = (headers: HeaderGroup[]) =>
   headers.reduce((sum, g) => sum + g.ids.length, 0);
 
 // encontra o grupo e offset pelo índice absoluto de coluna
@@ -23,7 +35,61 @@ function locateColumn(headers: HeaderGroup[], colIndex: number) {
   return null;
 }
 
-// flatten/regroup ajudam a mesclar intervalos de header com segurança
+function makeId() {
+  return Date.now() + Math.floor(Math.random() * 1000);
+}
+
+// cria cópia profunda
+function cloneData(data: TableCell[][]): TableCell[][] {
+  return data.map((row) => row.map((cell) => ({ ...cell })));
+}
+
+// normaliza [a,b] para [min,max]
+function normalizeRange(a: number, b: number): [number, number] {
+  return a <= b ? [a, b] : [b, a];
+}
+
+// limita valor em [min,max]
+function clamp(v: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, v));
+}
+
+// reseta merges dentro de um intervalo
+function resetMergedCells(
+  data: TableCell[][],
+  startRow: number,
+  endRow: number,
+  startCol: number,
+  endCol: number
+): TableCell[][] {
+  const next = cloneData(data);
+  for (let r = startRow; r <= endRow; r++) {
+    for (let c = startCol; c <= endCol; c++) {
+      if (next[r]?.[c]) {
+        next[r][c].merged = false;
+        next[r][c].rowSpan = undefined;
+        next[r][c].colSpan = undefined;
+      }
+    }
+  }
+  return next;
+}
+
+// limpa TUDO (usado quando a estrutura muda para evitar spans inválidos)
+function clearAllMerges(data: TableCell[][]): TableCell[][] {
+  const rows = data.length;
+  const cols = data[0]?.length ?? 0;
+  return resetMergedCells(data, 0, Math.max(0, rows - 1), 0, Math.max(0, cols - 1));
+}
+
+// ----------------------- Persistência -----------------------
+
+export type TableData = {
+  headers: HeaderGroup[];
+  rows: TableCell[][];
+};
+
+// flatten/regroup para cabeçalhos
 function flattenHeaders(headers: HeaderGroup[]) {
   return headers.flatMap((g) => g.ids.map((id) => ({ id, text: g.text })));
 }
@@ -33,6 +99,7 @@ function regroup(flat: { id: number; text: string }[]): HeaderGroup[] {
   const out: HeaderGroup[] = [];
   let curText = flat[0].text;
   let curIds: number[] = [flat[0].id];
+
   for (let i = 1; i < flat.length; i++) {
     if (flat[i].text === curText) {
       curIds.push(flat[i].id);
@@ -46,9 +113,51 @@ function regroup(flat: { id: number; text: string }[]): HeaderGroup[] {
   return out;
 }
 
-function makeId() {
-  return Date.now() + Math.floor(Math.random() * 1000);
+export function persistToStorage(data: TableData) {
+  if (typeof window === "undefined") return; // Next.js SSR guard
+  const flatHeaders = flattenHeaders(data.headers);
+  const payload = {
+    headers: flatHeaders,
+    rows: data.rows, // TableCell[][]
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+  } catch {
+    // storage indisponível/saturado: ignore
+  }
 }
+
+export function loadFromStorage(): TableData | null {
+  if (typeof window === "undefined") return null; // Next.js SSR guard
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      headers: { id: number; text: string }[];
+      rows: TableCell[][];
+    };
+    return {
+      headers: regroup(parsed.headers || []),
+      rows: Array.isArray(parsed.rows) ? parsed.rows : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+// ---- Criação de nova tabela ----
+export function createEmptyTable(rows: number, cols: number): TableData {
+  const headers: HeaderGroup[] = [
+    { ids: Array.from({ length: cols }, (_, i) => i), text: "Grupo 1" },
+  ];
+  const dataRows = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({ value: "" as string }))
+  );
+  return { headers, rows: dataRows };
+}
+
+// ----------------------- Operações de célula/estrutura -----------------------
 
 // Atualiza valor de célula
 export const updateCellLogic = (
@@ -58,9 +167,8 @@ export const updateCellLogic = (
   value: string
 ): TableCell[][] => {
   if (!data[r] || !data[r][c]) return data;
-  const next = data.slice();
-  next[r] = data[r].slice();
-  next[r][c] = { ...data[r][c], value };
+  const next = cloneData(data);
+  next[r][c].value = value;
   return next;
 };
 
@@ -73,17 +181,21 @@ export const insertRowLogic = (
   const cols = data[0]?.length ?? 0;
   if (cols === 0) return data;
   const newRow: TableCell[] = Array.from({ length: cols }, () => ({ value: "" }));
-  const next = data.slice();
-  const targetIndex = pos === "above" ? rowIndex : rowIndex + 1;
+  const next = clearAllMerges(cloneData(data));
+  const targetIndex = clamp(pos === "above" ? rowIndex : rowIndex + 1, 0, next.length);
   next.splice(targetIndex, 0, newRow);
   return next;
 };
 
 // Remove linha
-export const removeRowLogic = (data: TableCell[][], rowIndex: number): TableCell[][] => {
+export const removeRowLogic = (
+  data: TableCell[][],
+  rowIndex: number
+): TableCell[][] => {
   if (data.length <= 1) return data;
   if (!data[rowIndex]) return data;
-  return data.filter((_, i) => i !== rowIndex);
+  const next = clearAllMerges(cloneData(data));
+  return next.filter((_, i) => i !== rowIndex);
 };
 
 // Insere coluna
@@ -96,9 +208,10 @@ export function insertColumnLogic(
   const targetAbs = pos === "left" ? colIndex : colIndex + 1;
 
   // corpo
-  const newData = data.map((row) => {
+  const newData = clearAllMerges(cloneData(data)).map((row) => {
     const newRow = row.slice();
-    newRow.splice(targetAbs, 0, { value: "" });
+    const idx = clamp(targetAbs, 0, newRow.length);
+    newRow.splice(idx, 0, { value: "" });
     return newRow;
   });
 
@@ -115,16 +228,15 @@ export function insertColumnLogic(
 
   if (gi < newHeaders.length) {
     const offsetInGroup = Math.max(0, targetAbs - acc);
-    newHeaders[gi].ids.splice(offsetInGroup, 0, newId);
+    const safeOffset = clamp(offsetInGroup, 0, newHeaders[gi].ids.length);
+    newHeaders[gi].ids.splice(safeOffset, 0, newId);
   } else {
-    // append ao último grupo (ou cria um grupo se vazio)
     if (newHeaders.length === 0) newHeaders.push({ ids: [newId], text: "" });
     else newHeaders[newHeaders.length - 1].ids.push(newId);
   }
 
   return { data: newData, headers: newHeaders };
 }
-
 
 // Remove coluna
 export function removeColumnLogic(
@@ -135,8 +247,12 @@ export function removeColumnLogic(
   const cols = data[0]?.length ?? 0;
   if (cols <= 1) return { data, headers };
 
-  const newData = data.map((row) => row.filter((_, j) => j !== colIndex));
-  const loc = locateColumn(headers, colIndex);
+  const safeIndex = clamp(colIndex, 0, cols - 1);
+  const newData = clearAllMerges(cloneData(data)).map((row) =>
+    row.filter((_, j) => j !== safeIndex)
+  );
+
+  const loc = locateColumn(headers, safeIndex);
   if (!loc) return { data: newData, headers };
 
   const newHeaders = headers.map((g) => ({ ...g, ids: g.ids.slice() }));
@@ -147,7 +263,14 @@ export function removeColumnLogic(
   return { data: newData, headers: newHeaders };
 }
 
-// Merge colunas
+// ----------------------- Merges -----------------------
+
+/**
+ * Observações importantes sobre merges:
+ * - Antes de aplicar um merge, limpamos o intervalo alvo com resetMergedCells (evita herança de merges anteriores).
+ * - Intervalos são normalizados e limitados ao tamanho real da matriz.
+ */
+
 export const mergeColumnsLogic = (
   data: TableCell[][],
   row: number,
@@ -155,37 +278,48 @@ export const mergeColumnsLogic = (
   endCol: number
 ): TableCell[][] => {
   if (!data[row]) return data;
-  const next = data.slice();
-  next[row] = data[row].slice();
-  const mainCell = { ...next[row][startCol], colSpan: endCol - startCol + 1 };
-  next[row][startCol] = mainCell;
-  for (let c = startCol + 1; c <= endCol; c++) {
+
+  const cols = data[row].length;
+  let [sc, ec] = normalizeRange(startCol, endCol);
+  sc = clamp(sc, 0, cols - 1);
+  ec = clamp(ec, 0, cols - 1);
+  if (sc > ec) return data;
+
+  const next = resetMergedCells(data, row, row, sc, ec);
+
+  const mainCell = { ...next[row][sc], colSpan: ec - sc + 1 };
+  next[row][sc] = mainCell;
+
+  for (let c = sc + 1; c <= ec; c++) {
     if (next[row][c]) next[row][c] = { ...next[row][c], merged: true };
   }
   return next;
 };
 
-// Merge linhas
 export const mergeRowsLogic = (
   data: TableCell[][],
   col: number,
   startRow: number,
   endRow: number
 ): TableCell[][] => {
-  if (!data[startRow] || !data[startRow][col]) return data;
-  const next = data.slice();
-  next[startRow] = data[startRow].slice();
-  const mainCell = { ...next[startRow][col], rowSpan: endRow - startRow + 1 };
-  next[startRow][col] = mainCell;
-  for (let r = startRow + 1; r <= endRow; r++) {
-    if (!data[r] || !data[r][col]) continue;
-    next[r] = data[r].slice();
-    next[r][col] = { ...data[r][col], merged: true };
+  const rows = data.length;
+  let [sr, er] = normalizeRange(startRow, endRow);
+  sr = clamp(sr, 0, rows - 1);
+  er = clamp(er, 0, rows - 1);
+  if (sr > er) return data;
+  if (!data[sr] || !data[sr][col]) return data;
+
+  const next = resetMergedCells(data, sr, er, col, col);
+
+  const mainCell = { ...next[sr][col], rowSpan: er - sr + 1 };
+  next[sr][col] = mainCell;
+
+  for (let r = sr + 1; r <= er; r++) {
+    if (next[r]?.[col]) next[r][col] = { ...next[r][col], merged: true };
   }
   return next;
 };
 
-// Merge bloco
 export const mergeBlockLogic = (
   data: TableCell[][],
   startRow: number,
@@ -193,20 +327,32 @@ export const mergeBlockLogic = (
   startCol: number,
   endCol: number
 ): TableCell[][] => {
-  if (!data[startRow] || !data[startRow][startCol]) return data;
-  const next = data.slice();
-  next[startRow] = data[startRow].slice();
+  const rows = data.length;
+  const cols = data[0]?.length ?? 0;
+  if (rows === 0 || cols === 0) return data;
+
+  let [sr, er] = normalizeRange(startRow, endRow);
+  let [sc, ec] = normalizeRange(startCol, endCol);
+  sr = clamp(sr, 0, rows - 1);
+  er = clamp(er, 0, rows - 1);
+  sc = clamp(sc, 0, cols - 1);
+  ec = clamp(ec, 0, cols - 1);
+  if (sr > er || sc > ec) return data;
+  if (!data[sr] || !data[sr][sc]) return data;
+
+  const next = resetMergedCells(data, sr, er, sc, ec);
+
   const mainCell = {
-    ...next[startRow][startCol],
-    rowSpan: endRow - startRow + 1,
-    colSpan: endCol - startCol + 1,
+    ...next[sr][sc],
+    rowSpan: er - sr + 1,
+    colSpan: ec - sc + 1,
   };
-  next[startRow][startCol] = mainCell;
-  for (let r = startRow; r <= endRow; r++) {
-    if (r !== startRow) next[r] = data[r]?.slice() ?? [];
-    for (let c = startCol; c <= endCol; c++) {
-      if (r === startRow && c === startCol) continue;
-      if (data[r]?.[c]) next[r][c] = { ...data[r][c], merged: true };
+  next[sr][sc] = mainCell;
+
+  for (let r = sr; r <= er; r++) {
+    for (let c = sc; c <= ec; c++) {
+      if (r === sr && c === sc) continue;
+      if (next[r]?.[c]) next[r][c] = { ...next[r][c], merged: true };
     }
   }
   return next;
