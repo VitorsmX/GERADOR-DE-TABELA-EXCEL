@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import {
-  EditableTableProps,
-} from "./EditableTable.types";
+import { EditableTableProps } from "./EditableTable.types";
 import {
   containerClass,
   tableWrapperClass,
@@ -20,6 +18,7 @@ import {
   mergeRowsLogic,
   mergeBlockLogic,
 } from "./EditableTable.logic";
+
 import EditableCell from "@/components/table/TableCell";
 
 export default function EditableTable({
@@ -36,7 +35,6 @@ export default function EditableTable({
     },
     [setData]
   );
-
   const insertRow = useCallback(
     (rowIndex: number, pos: "above" | "below") => {
       setData((prev) => insertRowLogic(prev, rowIndex, pos));
@@ -64,7 +62,7 @@ export default function EditableTable({
     },
     [data, headers, setData, setHeaders]
   );
-
+  
   const removeColumn = useCallback(
     (colIndex: number) => {
       const { data: newData, headers: newHeaders } = removeColumnLogic(
@@ -77,6 +75,7 @@ export default function EditableTable({
     },
     [data, headers, setData, setHeaders]
   );
+  
 
   const mergeColumns = useCallback(
     (row: number, startCol: number, endCol: number) => {
@@ -94,7 +93,9 @@ export default function EditableTable({
 
   const mergeBlock = useCallback(
     (startRow: number, endRow: number, startCol: number, endCol: number) => {
-      setData((prev) => mergeBlockLogic(prev, startRow, endRow, startCol, endCol));
+      setData((prev) =>
+        mergeBlockLogic(prev, startRow, endRow, startCol, endCol)
+      );
     },
     [setData]
   );

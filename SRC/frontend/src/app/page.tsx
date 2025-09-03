@@ -49,6 +49,7 @@ export default function Home() {
       {step === 3 && (
         <Step3
           headers={headers}
+          setHeaders={setHeaders}
           data={data}
           setData={setData}
           onNext={() => setStep(4)}

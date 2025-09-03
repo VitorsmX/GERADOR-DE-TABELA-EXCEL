@@ -13,13 +13,12 @@ import {
 } from "./Step3.styles";
 
 export default function Step3({
-  headers: initialHeaders,
+  headers,
+  setHeaders,
   data,
   setData,
   onNext,
-}: Step3Props) {
-  // Inicializa estado apenas uma vez
-  const [headers, setHeaders] = useState<HeaderGroup[]>(() => initialHeaders);
+}: Step3Props & { setHeaders: React.Dispatch<React.SetStateAction<HeaderGroup[]>> }) {
   const [fileName, setFileName] = useState("");
 
   const handleExport = useCallback(async () => {
@@ -40,7 +39,7 @@ export default function Step3({
       <EditableTable
         headers={headers}
         data={data}
-        setHeaders={setHeaders}
+        setHeaders={setHeaders} // altera o estado do Home
         setData={setData}
       />
 

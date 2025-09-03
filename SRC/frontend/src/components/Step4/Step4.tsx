@@ -25,6 +25,7 @@ import Prism from "prismjs";
 import ExcelJS from "exceljs";
 import "prismjs/components/prism-clike";
 import "prismjs/components/prism-javascript";
+import { HeaderGroup } from "../Step3/Step3.types";
 
 type SelectedCell = SelectedCellBase | null;
 type TableCellWithDisplay = TableCell & {
@@ -150,67 +151,64 @@ export default function Step4({
   const handleExport = useCallback(async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet(SHEET_NAME);
-
-    // Converte cabeçalhos para string
-    const headerRow = headers.map((h) => {
-      if (typeof h === "string") return h;
-      if (h && typeof h === "object") {
-        return h.text ?? String(h);
+  
+    // Converte HeaderGroup[] -> TableCell[][] (uma linha com colSpan e placeholders merged)
+    function headerGroupsToCells(headers: HeaderGroup[], totalCols: number): TableCell[][] {
+      const row: TableCell[] = [];
+      let col = 0;
+      headers.forEach((g) => {
+        const span = g.ids.length || 1;
+        // célula mestre
+        row[col] = { value: g.text ?? "", colSpan: span, rowSpan: 1 };
+        // placeholders "filhas" do merge de header
+        for (let i = 1; i < span; i++) {
+          row[col + i] = { value: "", merged: true };
+        }
+        col += span;
+      });
+      // garante comprimento total
+      while (row.length < totalCols) {
+        row.push({ value: "" });
       }
-      return String(h ?? "");
-    });
-
-    // Monta todas as linhas (cabeçalho + dados)
-    const allRows: (
-      | string
-      | number
-      | boolean
-      | null
-      | { formula: string }
-    )[][] = [
-      headerRow,
-      ...data.map((row) =>
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        row.map((cell, idx) => {
-          const v = cell.value;
-          if (typeof v === "string" && v.startsWith("=")) {
-            const shifted = shiftFormulaRows(v.slice(1), 1);
-            return { formula: shifted };
-          }
-          return parseIfNumber(v);
-        })
-      ),
-    ];
-
-    // Aplica valores e estilos
+      return [row];
+    }
+  
+    const totalCols = data[0]?.length ?? 0;
+    const headerCells = headerGroupsToCells(headers, totalCols);
+    const headerRowsCount = headerCells.length; // normalmente 1
+  
+    // Monta todas as linhas: cabeçalho + corpo
+    const allRows: TableCell[][] = [...headerCells, ...data];
+  
+    // 1️⃣ Primeiro loop: escreve valores e estilos
     allRows.forEach((row, r) => {
-      const excelRow = sheet.getRow(r + 1);
-      row.forEach((cellValue, c) => {
+      const excelRowNumber = r + 1;
+      const excelRow = sheet.getRow(excelRowNumber);
+  
+      row.forEach((cell, c) => {
         const excelCell = excelRow.getCell(c + 1);
-        excelCell.value = cellValue;
-
+  
+        if (!cell?.merged) {
+          if (typeof cell?.value === "string" && cell.value.startsWith("=")) {
+            const shifted = shiftFormulaRows(cell.value.slice(1), headerRowsCount);
+            excelCell.value = { formula: shifted };
+          } else {
+            excelCell.value = parseIfNumber(cell?.value);
+          }
+        } else {
+          excelCell.value = null; // filhas de merge ficam vazias
+        }
+  
         // Estilo do cabeçalho
-        if (r === 0) {
-          excelCell.font = {
-            bold: true,
-            color: { argb: "FFFFFFFF" },
-            name: "Calibri",
-          };
-          excelCell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FF4F81BD" },
-          };
+        if (r < headerRowsCount) {
+          excelCell.font = { bold: true, color: { argb: "FFFFFFFF" }, name: "Calibri" };
+          excelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF4F81BD" } };
         }
-        // Linhas alternadas (apenas dados)
-        else if (r % 2 === 1) {
-          excelCell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FFEDEDED" },
-          };
+        // Linhas alternadas no corpo
+        else if ((r - headerRowsCount) % 2 === 1) {
+          excelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEDEDED" } };
         }
-
+  
         excelCell.alignment = { horizontal: "center", vertical: "middle" };
         excelCell.border = {
           top: { style: "thin" },
@@ -218,27 +216,33 @@ export default function Step4({
           left: { style: "thin" },
           right: { style: "thin" },
         };
-
-        // Se tiver rowSpan/colSpan no TableCell original
-        if (r > 0) {
-          const tableCell = data[r - 1]?.[c];
-          if ((tableCell?.rowSpan ?? 1) > 1 || (tableCell?.colSpan ?? 1) > 1) {
-            sheet.mergeCells(
-              r + 1,
-              c + 1,
-              r + (tableCell.rowSpan ?? 1),
-              c + (tableCell.colSpan ?? 1)
-            );
-          }
+      });
+    });
+  
+    // 2️⃣ Segundo loop: aplica merges
+    allRows.forEach((row, r) => {
+      const excelRowNumber = r + 1;
+      row.forEach((cell, c) => {
+        const rowSpan = cell?.rowSpan ?? 1;
+        const colSpan = cell?.colSpan ?? 1;
+        const isMaster = !cell?.merged && (rowSpan > 1 || colSpan > 1);
+  
+        if (isMaster) {
+          sheet.mergeCells(
+            excelRowNumber,
+            c + 1,
+            excelRowNumber + rowSpan - 1,
+            c + colSpan
+          );
         }
       });
     });
-
+  
     // Largura das colunas
     sheet.columns.forEach((col) => {
       col.width = 20;
     });
-
+  
     // Gera e baixa o arquivo
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
@@ -247,12 +251,11 @@ export default function Step4({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${fileName.trim() || "tabela"}-${
-      new Date().toISOString().split("T")[0]
-    }.xlsx`;
+    a.download = `${fileName.trim() || "tabela"}-${new Date().toISOString().split("T")[0]}.xlsx`;
     a.click();
     URL.revokeObjectURL(url);
   }, [headers, data, fileName]);
+  
 
   return (
     <div className={containerClass}>
