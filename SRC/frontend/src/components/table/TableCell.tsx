@@ -9,8 +9,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { CellProps } from "@/components/Table/EditableTable/EditableTable.types";
-import { cellClass } from "@/components/Table/EditableTable/EditableTable.styles";
+import { CellProps } from "@/components/Table/editable-table/EditableTable.types";
+import { cellClass } from "@/components/Table/editable-table/EditableTable.styles";
 
 function TableCellComponent({
   r,

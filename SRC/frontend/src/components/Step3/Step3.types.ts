@@ -1,4 +1,4 @@
-import { TableCell } from "@/components/Table/EditableTable/EditableTable.types";
+import { TableCell } from "@/components/Table/editable-table/EditableTable.types";
 
 export type HeaderGroup = {
   ids: number[];

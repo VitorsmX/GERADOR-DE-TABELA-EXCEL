@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import EditableTable from "@/components/Table/EditableTable";
+import EditableTable from "@/components/Table/editable-table";
 import { Step3Props, HeaderGroup } from "./Step3.types";
 import { handleExportLogic } from "./Step3.logic";
 import {

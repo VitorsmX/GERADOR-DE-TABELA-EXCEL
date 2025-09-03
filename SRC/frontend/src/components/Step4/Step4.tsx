@@ -6,12 +6,12 @@ import {
   CellValue as HFCellValue,
   CellError as HFCellError,
 } from "hyperformula";
-import EditableTable from "@/components/Table/EditableTable";
+import EditableTable from "@/components/Table/editable-table";
 import { Step4Props } from "./Step4.types";
 import {
   SelectedCell as SelectedCellBase,
   TableCell,
-} from "@/components/Table/EditableTable/EditableTable.types";
+} from "@/components/Table/editable-table/EditableTable.types";
 import {
   containerClass,
   titleClass,

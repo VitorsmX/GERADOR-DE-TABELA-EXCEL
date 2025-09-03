@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
 import { HeaderGroup } from "@/components/Step2/Step2.types";
-import { TableCell } from "@/components/Table/EditableTable/EditableTable.types";
+import { TableCell } from "@/components/Table/editable-table/EditableTable.types";
 
 export async function exportWithFormulas(
   headers: HeaderGroup[],
