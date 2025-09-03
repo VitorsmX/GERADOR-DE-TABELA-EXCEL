@@ -54,6 +54,7 @@ export default function Step4({
   const [fileName, setFileName] = useState("");
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null);
   const [calculatedValue, setCalculatedValue] = useState<string>("");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const hfRef = useRef<HyperFormula | null>(null);
 
@@ -289,29 +290,60 @@ export default function Step4({
         />
       </div>
 
-      <div className="flex flex-col justify-evenly items-center mt-4 overflow-scroll">
-        <div className="rounded-2xl shadow-lg p-5">
+      <button
+        onClick={() => setIsSidebarOpen(true)}
+        className="fixed top-1/2 right-0 transform -translate-y-1/2 bg-blue-600 text-white px-3 py-2 rounded-l-lg shadow-lg hover:bg-blue-700 z-50"
+      >
+        Menu
+      </button>
+
+      {isSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-40 z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <div
+        className={`fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
+          isSidebarOpen ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        <div className="flex justify-between items-center p-4 border-b">
+          <h3 className="text-lg font-semibold">Opções</h3>
           <button
-            onClick={handleCalculate}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            onClick={() => setIsSidebarOpen(false)}
+            className="text-gray-500 hover:text-gray-700"
           >
-            Calcular fórmula
+            ✕
           </button>
-          <div className="text-xl text-center">
-            Valor calculado: {calculatedValue}
-          </div>
         </div>
-        <div className={exportBarClass}>
-          <input
-            type="text"
-            placeholder="Nome do arquivo"
-            value={fileName}
-            onChange={(e) => setFileName(e.target.value)}
-            className={inputClass}
-          />
-          <button onClick={handleExport} className={exportButtonClass}>
-            Exportar Excel com Fórmulas
-          </button>
+
+        <div className="p-4 space-y-6">
+          <div className="rounded-2xl shadow-lg p-5">
+            <button
+              onClick={handleCalculate}
+              className="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Calcular fórmula
+            </button>
+            <div className="text-lg text-center mt-2">
+              Valor calculado: {calculatedValue}
+            </div>
+          </div>
+
+          <div className={exportBarClass}>
+            <input
+              type="text"
+              placeholder="Nome do arquivo"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className={inputClass}
+            />
+            <button onClick={handleExport} className={exportButtonClass}>
+              Exportar Excel com Fórmulas
+            </button>
+          </div>
         </div>
       </div>
     </div>
