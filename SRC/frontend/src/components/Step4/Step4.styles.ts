@@ -4,7 +4,7 @@ export const containerClass =
 export const titleClass = "text-xl font-semibold mb-4";
 
 export const exportBarClass =
-  "flex gap-2 items-center justify-end mt-4 bg-zinc-50 rounded-2xl px-3 py-2";
+  "flex flex-col gap-2 items-center justify-end mt-4 bg-zinc-50 rounded-2xl px-3 py-2";
 
 export const inputClass = "border rounded p-2 bg-zinc-50";
 
