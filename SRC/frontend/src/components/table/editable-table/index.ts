@@ -1,3 +1,3 @@
-import EditableTable from "@/components/Table/editable-table/EditableTable";
+import EditableTable from "@/components/table/editable-table/EditableTable";
 
 export default EditableTable;

@@ -20,7 +20,7 @@ import {
   mergeRowsLogic,
   mergeBlockLogic,
 } from "./EditableTable.logic";
-import EditableCell from "@/components/Table/TableCell";
+import EditableCell from "@/components/table/TableCell";
 
 export default function EditableTable({
   headers,

@@ -17,7 +17,7 @@ import {
   mergeButtonClass,
   nextButtonClass,
 } from "./Step2.styles";
-import { DraggableHeader } from "@/components/Table/draggable-header";
+import { DraggableHeader } from "@/components/table/draggable-header";
 
 export default function Step2({ cols, onNext }: Step2Props) {
   const [headers, setHeaders] = useState<HeaderGroup[]>(

@@ -1,5 +1,5 @@
 import { HeaderGroup } from "@/components/Step3/Step3.types";
-import { TableCell } from "@/components/Table/editable-table/EditableTable.types";
+import { TableCell } from "@/components/table/editable-table/EditableTable.types";
 
 // Atualiza valor de célula
 export const updateCellLogic = (

@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs"
-import { TableCell } from "@/components/Table/editable-table/EditableTable.types"
+import { TableCell } from "@/components/table/editable-table/EditableTable.types"
 
 export default async function exportExcel(
   headers: TableCell[][],
