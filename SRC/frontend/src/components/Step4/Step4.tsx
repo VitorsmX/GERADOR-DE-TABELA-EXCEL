@@ -1,58 +1,48 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import {
-  HyperFormula,
-  CellValue as HFCellValue,
-  CellError as HFCellError,
-} from "hyperformula";
+import { HyperFormula, CellValue as HFCellValue, CellError as HFCellError } from "hyperformula";
 import EditableTable from "@/components/table/editable-table";
 import { Step4Props, TableCellWithDisplay, SelectedCell } from "./Step4.types";
-import {
-  containerClass,
-  titleClass,
-  exportBarClass,
-  inputClass,
-  exportButtonClass,
-} from "./Step4.styles";
-
+import { containerClass, titleClass, exportBarClass, inputClass, exportButtonClass } from "./Step4.styles";
 import Editor from "react-simple-code-editor";
-import "prismjs/components/prism-clike";
-import "prismjs/components/prism-javascript";
-
-import { toRawMatrix, highlightFormula, exportToExcel } from "./Step4.logic";
+import { toRawMatrix, exportToExcel } from "./Step4.logic";
 
 const SHEET_ID = 0;
 
-export default function Step4({
-  headers: initialHeaders,
-  data: initialData,
-}: Step4Props) {
+export default function Step4({ headers: initialHeaders, data: initialData }: Step4Props) {
   const [headers, setHeaders] = useState(initialHeaders);
   const [data, setData] = useState<TableCellWithDisplay[][]>(initialData);
   const [fileName, setFileName] = useState("");
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null);
   const [calculatedValue, setCalculatedValue] = useState<string>("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
   const hfRef = useRef<HyperFormula | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [Prism, setPrism] = useState<any>(null); // carregamento client-only
 
   // inicializa HyperFormula
   useEffect(() => {
-    const hf = HyperFormula.buildFromArray(toRawMatrix(initialData), {
-      licenseKey: "gpl-v3",
-    });
+    const hf = HyperFormula.buildFromArray(toRawMatrix(initialData), { licenseKey: "gpl-v3" });
     hfRef.current = hf;
-    return () => {
-      hf.destroy();
-      hfRef.current = null;
-    };
+    return () => hf.destroy();
   }, [initialData]);
+
+  // carrega Prism apenas no client
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const prism = require("prismjs");
+      require("prismjs/components/prism-clike");
+      require("prismjs/components/prism-javascript");
+      setPrism(prism);
+    }
+  }, []);
 
   const handleValueChange = useCallback(
     (code: string) => {
       if (!selectedCell) return;
-      setData((prev) =>
+      setData(prev =>
         prev.map((row, rIdx) =>
           rIdx === selectedCell.row
             ? row.map((cell, cIdx) =>
@@ -68,40 +58,25 @@ export default function Step4({
   const handleCalculate = useCallback(() => {
     if (!selectedCell || !hfRef.current) return;
     const hf = hfRef.current;
-
     hf.setSheetContent(SHEET_ID, toRawMatrix(data));
-    const addr = {
-      sheet: SHEET_ID,
-      col: selectedCell.col,
-      row: selectedCell.row,
-    };
+    const addr = { sheet: SHEET_ID, col: selectedCell.col, row: selectedCell.row };
     const value: HFCellValue = hf.getCellValue(addr);
 
-    const display =
-      value === null
-        ? ""
-        : value instanceof HFCellError
-        ? "#ERRO"
-        : String(value);
+    const display = value === null ? "" : value instanceof HFCellError ? "#ERRO" : String(value);
     setCalculatedValue(display);
 
-    // atualiza displayValue só na célula selecionada
-    setData((prev) =>
+    setData(prev =>
       prev.map((row, rIdx) =>
         rIdx === selectedCell.row
           ? row.map((cell, cIdx) =>
-              cIdx === selectedCell.col
-                ? { ...cell, displayValue: display }
-                : cell
+              cIdx === selectedCell.col ? { ...cell, displayValue: display } : cell
             )
           : row
       )
     );
   }, [selectedCell, data]);
 
-  const handleExport = useCallback(() => {
-    exportToExcel(headers, data, fileName);
-  }, [headers, data, fileName]);
+  const handleExport = useCallback(() => exportToExcel(headers, data, fileName), [headers, data, fileName]);
 
   return (
     <div className={containerClass}>
@@ -117,26 +92,24 @@ export default function Step4({
       />
 
       <div className="mt-6">
-        <h3 className="font-semibold mb-2">
-          Editor de Fórmulas (célula selecionada)
-        </h3>
-        <Editor
-          value={
-            selectedCell
-              ? String(data[selectedCell.row][selectedCell.col].value ?? "")
-              : ""
-          }
-          onValueChange={handleValueChange}
-          highlight={highlightFormula} // ✅ aqui
-          padding={10}
-          style={{
-            fontFamily: '"Fira code", "Fira Mono", monospace',
-            fontSize: 14,
-            border: "1px solid #ccc",
-            borderRadius: "8px",
-            minHeight: "50px",
-          }}
-        />
+        <h3 className="font-semibold mb-2">Editor de Fórmulas (célula selecionada)</h3>
+        {Prism && (
+          <Editor
+            value={selectedCell ? String(data[selectedCell.row][selectedCell.col].value ?? "") : ""}
+            onValueChange={handleValueChange}
+            highlight={code =>
+              Prism.highlight(code, Prism.languages.javascript, "javascript")
+            }
+            padding={10}
+            style={{
+              fontFamily: '"Fira code", "Fira Mono", monospace',
+              fontSize: 14,
+              border: "1px solid #ccc",
+              borderRadius: "8px",
+              minHeight: "50px",
+            }}
+          />
+        )}
       </div>
 
       <button
@@ -146,12 +119,7 @@ export default function Step4({
         Menu
       </button>
 
-      {isSidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/5 z-40"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/5 z-40" onClick={() => setIsSidebarOpen(false)} />}
 
       <div
         className={`fixed top-0 right-0 h-full w-120 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
@@ -160,12 +128,7 @@ export default function Step4({
       >
         <div className="flex justify-between items-center p-4 border-b">
           <h3 className="text-lg font-semibold">Opções</h3>
-          <button
-            onClick={() => setIsSidebarOpen(false)}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            ✕
-          </button>
+          <button onClick={() => setIsSidebarOpen(false)} className="text-gray-500 hover:text-gray-700">✕</button>
         </div>
 
         <div className="p-4 space-y-6">
@@ -176,9 +139,7 @@ export default function Step4({
             >
               Calcular fórmula
             </button>
-            <div className="text-lg text-center mt-2">
-              Valor calculado: {calculatedValue}
-            </div>
+            <div className="text-lg text-center mt-2">Valor calculado: {calculatedValue}</div>
           </div>
 
           <div className={exportBarClass}>
