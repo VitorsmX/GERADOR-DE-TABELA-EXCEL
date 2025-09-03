@@ -1,5 +1,5 @@
 "use client"
-import { HeaderGroup } from "@/components/Step3"
+import { HeaderGroup } from "@/components/Step3/Step3.types"
 
 export default function TableControls({
   headers,
