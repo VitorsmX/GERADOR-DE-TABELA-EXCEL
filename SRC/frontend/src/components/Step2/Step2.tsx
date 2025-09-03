@@ -1,85 +1,51 @@
 "use client";
+import { useState } from "react";
+import { HeaderGroup } from "@/components/Step2/Step2.types";
 
-import { useState, useCallback } from "react";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import { TouchBackend } from "react-dnd-touch-backend";
-import { FaArrowsAltH } from "react-icons/fa";
-import { Step2Props, HeaderGroup } from "@/components/Step2/Step2.types";
-import {
-  mergeHeadersLogic,
-  moveHeaderLogic,
-  updateHeaderTextLogic,
-} from "./Step2.logic";
-import {
-  containerClass,
-  headerWrapperClass,
-  mergeButtonClass,
-  nextButtonClass,
-} from "./Step2.styles";
-import { DraggableHeader } from "@/components/table/draggable-header";
+interface Step2Props {
+  rows: number;
+  cols: number;
+  onNext: (headers: HeaderGroup[]) => void;
+}
 
-export default function Step2({ cols, onNext }: Step2Props) {
+export default function Step2({ rows, cols, onNext }: Step2Props) {
   const [headers, setHeaders] = useState<HeaderGroup[]>(
-    Array.from({ length: cols }, (_, i) => ({ ids: [i], text: "" }))
+    Array.from({ length: cols }, (_, i) => ({
+      ids: [i],
+      text: "",
+    }))
   );
 
-  const mergeHeaders = useCallback(
-    (start: number, end: number) => {
-      setHeaders((prev) => mergeHeadersLogic(prev, start, end));
-    },
-    []
-  );
-
-  const moveHeader = useCallback(
-    (from: number, to: number) => {
-      setHeaders((prev) => moveHeaderLogic(prev, from, to));
-    },
-    []
-  );
-
-  const updateText = useCallback((i: number, value: string) => {
-    setHeaders((prev) => updateHeaderTextLogic(prev, i, value));
-  }, []);
-
-  const isTouchDevice =
-    typeof window !== "undefined" &&
-    ("ontouchstart" in window || navigator.maxTouchPoints > 0);
+  const handleChange = (index: number, value: string) => {
+    setHeaders(prev =>
+      prev.map((header, i) =>
+        i === index ? { ...header, text: value } : header
+      )
+    );
+  };
 
   return (
-    <DndProvider backend={isTouchDevice ? TouchBackend : HTML5Backend}>
-      <div className={containerClass}>
-        <h2 className="text-xl font-semibold mb-4">Defina os Cabeçalhos</h2>
-
-        <div className={headerWrapperClass}>
-          {headers.map((h, i) => (
-            <div key={i} className="flex items-center">
-              <DraggableHeader
-                header={h}
-                index={i}
-                moveHeader={moveHeader}
-                updateText={updateText}
-              />
-              {i < headers.length - 1 && (
-                <button
-                  onClick={() => mergeHeaders(i, i + 1)}
-                  className={mergeButtonClass}
-                  title="Unir colunas"
-                >
-                  <FaArrowsAltH />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={() => onNext(headers)}
-          className={nextButtonClass}
-        >
-          Próxima Etapa
-        </button>
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold">Defina os Cabeçalhos</h2>
+      <div className="grid grid-cols-2 gap-2">
+        {headers.map((header, i) => (
+          <input
+            key={i}
+            value={header.text}
+            onChange={e => handleChange(i, e.target.value)}
+            placeholder={`Cabeçalho ${i + 1}`}
+            className="border p-2 rounded w-full"
+          />
+        ))}
       </div>
-    </DndProvider>
+      <button
+        onClick={() =>
+          onNext(headers.map(h => ({ ...h, ids: [...h.ids] })))
+        }
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        Próximo
+      </button>
+    </div>
   );
 }

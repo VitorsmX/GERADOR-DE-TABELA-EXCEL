@@ -1,69 +1,72 @@
 "use client";
+import { useState } from "react";
+import { HeaderGroup } from "@/components/Step2/Step2.types";
+import { TableCell } from "../table/editable-table/EditableTable.types";
 
-import { useState, useCallback } from "react";
-import EditableTable from "@/components/table/editable-table";
-import { Step3Props, HeaderGroup } from "./Step3.types";
-import { handleExportLogic } from "./Step3.logic";
-import {
-  containerClass,
-  titleClass,
-  exportBarClass,
-  inputClass,
-  exportButtonClass,
-} from "./Step3.styles";
+interface Step3Props {
+  headers: HeaderGroup[];
+  data: TableCell[][];
+  onNext: (headers: HeaderGroup[], data: TableCell[][]) => void;
+}
 
-export default function Step3({
-  headers,
-  setHeaders,
-  data,
-  setData,
-  onNext,
-}: Step3Props & { setHeaders: React.Dispatch<React.SetStateAction<HeaderGroup[]>> }) {
-  const [fileName, setFileName] = useState("");
-
-  const handleExport = useCallback(async () => {
-    await handleExportLogic({ headers, data, fileName });
-  }, [headers, data, fileName]);
-
-  const handleFileNameChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFileName(e.target.value);
-    },
-    []
+export default function Step3({ headers, data, onNext }: Step3Props) {
+  const [localHeaders, setLocalHeaders] = useState<HeaderGroup[]>(
+    headers.map(h => ({ ...h, ids: [...h.ids] }))
+  );
+  const [localData, setLocalData] = useState<TableCell[][]>(
+    data.map(row => row.map(cell => ({ ...cell })))
   );
 
+  const handleChange = (row: number, col: number, value: string) => {
+    setLocalData(prev =>
+      prev.map((r, ri) =>
+        ri === row
+          ? r.map((c, ci) => (ci === col ? { ...c, value } : c))
+          : r
+      )
+    );
+  };
+
   return (
-    <div className={containerClass}>
-      <h2 className={titleClass}>Monte sua Tabela</h2>
-
-      <EditableTable
-        headers={headers}
-        data={data}
-        setHeaders={setHeaders} // altera o estado do Home
-        setData={setData}
-      />
-
-      <div className="flex justify-between mt-4">
-        <button
-          onClick={onNext}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Ir para Etapa 4
-        </button>
-      </div>
-
-      <div className={exportBarClass}>
-        <input
-          type="text"
-          placeholder="Nome do arquivo"
-          value={fileName}
-          onChange={handleFileNameChange}
-          className={inputClass}
-        />
-        <button onClick={handleExport} className={exportButtonClass}>
-          Gerar Tabela Excel
-        </button>
-      </div>
+    <div className="space-y-4">
+      <h2 className="text-lg font-bold">Preencha a Tabela</h2>
+      <table className="border border-gray-300 w-full">
+        <thead>
+          <tr>
+            {localHeaders.map((header, i) => (
+              <th key={i} className="border px-2 py-1">
+                {header.text || `Col ${i + 1}`}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {localData.map((row, ri) => (
+            <tr key={ri}>
+              {row.map((cell, ci) => (
+                <td key={ci} className="border px-2 py-1">
+                  <input
+                    value={cell.value}
+                    onChange={e => handleChange(ri, ci, e.target.value)}
+                    className="w-full p-1"
+                  />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button
+        onClick={() =>
+          onNext(
+            localHeaders.map(h => ({ ...h, ids: [...h.ids] })),
+            localData.map(row => row.map(cell => ({ ...cell })))
+          )
+        }
+        className="bg-blue-500 text-white px-4 py-2 rounded"
+      >
+        Próximo
+      </button>
     </div>
   );
 }
