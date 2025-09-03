@@ -290,7 +290,7 @@ export default function Step4({
       </div>
 
       <div className="flex flex-col justify-evenly items-center mt-4 overflow-scroll">
-        <div className="rounded-2xl shadow-lg">
+        <div className="rounded-2xl shadow-lg p-5">
           <button
             onClick={handleCalculate}
             className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
