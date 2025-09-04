@@ -1,12 +1,12 @@
 "use client";
-import { useState } from "react";
-import Step1 from "../components/Step1";
-import Step2 from "../components/Step2";
-import Step3 from "../components/Step3";
-import Step4 from "../components/Step4";
-import { HeaderGroup } from "@/components/Step2/Step2.types";
-import { TableCell } from "../components/table/editable-table/EditableTable.types";
 
+import { useState } from "react";
+import type { HeaderGroup } from "@/components/Step2/Step2.types";
+import Step1 from "@/components/Step1";
+import Step2 from "@/components/Step2";
+import Step3 from "@/components/Step3";
+import Step4 from "@/components/Step4";
+import { TableCell } from "@/components/table/editable-table/EditableTable.types";
 
 export default function Home() {
   const [step, setStep] = useState(1);
@@ -16,12 +16,12 @@ export default function Home() {
   const [data, setData] = useState<TableCell[][]>([]);
 
   return (
-    <div className="p-4">
+    <div className="flex items-center justify-center h-screen bg-gray-100">
       {step === 1 && (
         <Step1
-          onNext={(r, c) => {
-            setRows(r);
-            setCols(c);
+          onNext={(row, column) => {
+            setRows(row);
+            setCols(column);
             setStep(2);
           }}
         />
@@ -29,19 +29,18 @@ export default function Home() {
 
       {step === 2 && (
         <Step2
-          rows={rows}
           cols={cols}
           onNext={(h: HeaderGroup[]) => {
-            // sempre clonar headers antes de salvar
-            setHeaders(h.map(header => ({ ...header, ids: [...header.ids] })));
-
-            // inicializar dados da tabela
+            setHeaders(h);
             setData(
-              Array.from({ length: rows }, () =>
-                Array.from({ length: cols }, () => ({ value: "" }))
-              )
+              Array(rows)
+                .fill(null)
+                .map(() =>
+                  Array(cols)
+                    .fill(null)
+                    .map(() => ({ value: "" }))
+                )
             );
-
             setStep(3);
           }}
         />
@@ -50,22 +49,14 @@ export default function Home() {
       {step === 3 && (
         <Step3
           headers={headers}
+          setHeaders={setHeaders}
           data={data}
-          onNext={(h, d) => {
-            // garantir cópias seguras
-            setHeaders(h.map(header => ({ ...header, ids: [...header.ids] })));
-            setData(d.map(row => row.map(cell => ({ ...cell }))));
-            setStep(4);
-          }}
+          setData={setData}
+          onNext={() => setStep(4)}
         />
       )}
 
-      {step === 4 && (
-        <Step4
-          headers={headers}
-          data={data}
-        />
-      )}
+      {step === 4 && <Step4 headers={headers} data={data} />}
     </div>
   );
 }
