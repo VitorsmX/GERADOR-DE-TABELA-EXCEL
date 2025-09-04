@@ -11,9 +11,14 @@ import { toRawMatrix, exportToExcel } from "./Step4.logic";
 
 const SHEET_ID = 0;
 
-export default function Step4({ headers: initialHeaders, data: initialData }: Step4Props) {
-  const [headers, setHeaders] = useState(initialHeaders);
-  const [data, setData] = useState<TableCellWithDisplay[][]>(initialData);
+export default function Step4({ headers: propHeaders, data: propData }: Step4Props) {
+  const [headers, setHeaders] = useState(propHeaders);
+  const [data, setData] = useState<TableCellWithDisplay[][]>(() => 
+    propData.map(row => row.map(cell => ({ 
+      ...cell, 
+      displayValue: cell.value 
+    })))
+  );
   const [fileName, setFileName] = useState("");
   const [selectedCell, setSelectedCell] = useState<SelectedCell>(null);
   const [calculatedValue, setCalculatedValue] = useState<string>("");
@@ -24,10 +29,10 @@ export default function Step4({ headers: initialHeaders, data: initialData }: St
 
   // inicializa HyperFormula
   useEffect(() => {
-    const hf = HyperFormula.buildFromArray(toRawMatrix(initialData), { licenseKey: "gpl-v3" });
+    const hf = HyperFormula.buildFromArray(toRawMatrix(data), { licenseKey: "gpl-v3" });
     hfRef.current = hf;
     return () => hf.destroy();
-  }, [initialData]);
+  }, [data]);
 
   // carrega Prism apenas no client
   useEffect(() => {

@@ -113,7 +113,13 @@ function regroup(flat: { id: number; text: string }[]): HeaderGroup[] {
   return out;
 }
 
+function isInEditableStage() {
+  const path = window.location.pathname;
+  return path.includes('step3') || path.includes('step4');
+}
+
 export function persistToStorage(data: TableData) {
+  if (typeof window === 'undefined' || !isInEditableStage()) return;
   if (typeof window === "undefined") return; // Next.js SSR guard
   const flatHeaders = flattenHeaders(data.headers);
   const payload = {

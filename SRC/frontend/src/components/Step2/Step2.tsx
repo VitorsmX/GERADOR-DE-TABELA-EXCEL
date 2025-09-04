@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TouchBackend } from "react-dnd-touch-backend";
@@ -20,6 +20,11 @@ import {
 import { DraggableHeader } from "@/components/table/draggable-header";
 
 export default function Step2({ cols, onNext }: Step2Props) {
+
+  useEffect(() => {
+    setHeaders(Array.from({ length: cols }, (_, i) => ({ ids: [i], text: "" })));
+  }, [cols]);
+
   const [headers, setHeaders] = useState<HeaderGroup[]>(
     Array.from({ length: cols }, (_, i) => ({ ids: [i], text: "" }))
   );

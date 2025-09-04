@@ -20,6 +20,9 @@ export default function Home() {
       {step === 1 && (
         <Step1
           onNext={(row, column) => {
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('editable-table-data');
+            }
             setRows(row);
             setCols(column);
             setStep(2);
