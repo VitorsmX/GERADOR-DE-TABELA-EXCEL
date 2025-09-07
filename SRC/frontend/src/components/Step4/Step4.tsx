@@ -48,7 +48,7 @@ export default function Step4({ headers: propHeaders, data: propData }: Step4Pro
       // adiciona uma sheet e recupera o id dela
       const sheetName = hf.addSheet(SHEET_NAME);
       // addSheet pode, em cenários especiais, retornar false; guardamos isso
-      if (!(!!sheetName)) {
+      if ((!!sheetName)) {
         // fallback: criar HF com buildFromArray (garante sheet 0)
         hf.destroy();
         const hf2 = HyperFormula.buildFromArray(toRawMatrix(data), { licenseKey: "gpl-v3" });
