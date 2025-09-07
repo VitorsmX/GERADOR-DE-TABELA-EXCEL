@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { EditableTableProps } from "./EditableTable.types";
 import {
   containerClass,
@@ -31,19 +31,37 @@ export default function EditableTable({
   selectedCell,
   setSelectedCell,
 }: EditableTableProps) {
-  // ---- Persistência ----
+  // Carrega do storage uma vez no mount (guard SSR dentro da lógica)
+  const mountedRef = useRef(false);
   useEffect(() => {
     const stored = loadFromStorage();
     if (stored) {
       setHeaders(stored.headers);
       setData(stored.rows);
     }
+    mountedRef.current = true;
   }, [setHeaders, setData]);
-  
+
+  // Debounce de persistência (evita escrita constante no localStorage)
+  const persistTimeout = useRef<number | null>(null);
   useEffect(() => {
-    persistToStorage({ headers, rows: data });
+    if (!mountedRef.current) return;
+    if (typeof window === "undefined") return;
+    if (persistTimeout.current) {
+      window.clearTimeout(persistTimeout.current);
+      persistTimeout.current = null;
+    }
+    persistTimeout.current = window.setTimeout(() => {
+      persistToStorage({ headers, rows: data });
+      persistTimeout.current = null;
+    }, 200);
+    return () => {
+      if (persistTimeout.current) {
+        window.clearTimeout(persistTimeout.current);
+        persistTimeout.current = null;
+      }
+    };
   }, [headers, data]);
-  
 
   // ---- Ações ----
   const updateCell = useCallback(
@@ -69,6 +87,8 @@ export default function EditableTable({
 
   const insertColumn = useCallback(
     (colIndex: number, pos: "left" | "right") => {
+      // usa os valores correntes vindo de props (simples e previsível)
+      if (!Array.isArray(data) || !Array.isArray(headers)) return;
       const { data: newData, headers: newHeaders } = insertColumnLogic(
         data,
         headers,
@@ -83,6 +103,7 @@ export default function EditableTable({
 
   const removeColumn = useCallback(
     (colIndex: number) => {
+      if (!Array.isArray(data) || !Array.isArray(headers)) return;
       const { data: newData, headers: newHeaders } = removeColumnLogic(
         data,
         headers,
@@ -126,22 +147,22 @@ export default function EditableTable({
             <tr>
               {headers.map((h, i) => (
                 <th
-                  key={h.ids.join("-")}
-                  colSpan={h.ids.length}
+                  key={h.ids?.join("-") ?? i}
+                  colSpan={h.ids?.length ?? 1}
                   className={headerCellClass}
                 >
                   <input
                     type="text"
-                    value={h.text}
+                    value={h.text ?? ""}
                     onChange={(e) =>
                       setHeaders((prev) => {
                         const next = prev.slice();
-                        next[i] = { ...prev[i], text: e.target.value };
+                        next[i] = { ...next[i], text: e.target.value };
                         return next;
                       })
                     }
                     className="w-full border rounded p-1"
-                    placeholder={`Cabeçalho ${h.ids.join(",")}`}
+                    placeholder={`Cabeçalho ${h.ids?.join(",") ?? i}`}
                   />
                 </th>
               ))}
@@ -152,7 +173,7 @@ export default function EditableTable({
             {data.map((row, r) => (
               <tr key={r}>
                 {row.map((cell, c) =>
-                  cell.merged ? null : (
+                  cell?.merged ? null : (
                     <EditableCell
                       key={`${r}-${c}`}
                       r={r}
@@ -168,6 +189,8 @@ export default function EditableTable({
                       mergeBlock={mergeBlock}
                       selectedCell={selectedCell}
                       setSelectedCell={setSelectedCell}
+                      rowsCount={data.length}
+                      colsCount={row.length}
                     />
                   )
                 )}

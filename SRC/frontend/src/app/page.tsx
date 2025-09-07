@@ -7,6 +7,11 @@ import Step2 from "@/components/Step2";
 import Step3 from "@/components/Step3";
 import Step4 from "@/components/Step4";
 import { TableCell } from "@/components/table/editable-table/EditableTable.types";
+import "prismjs";
+import "prismjs/components/prism-clike";
+import "prismjs/components/prism-javascript";
+import "prismjs/themes/prism.css";
+
 
 export default function Home() {
   const [step, setStep] = useState(1);

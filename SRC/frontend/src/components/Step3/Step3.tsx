@@ -12,40 +12,55 @@ import {
   exportButtonClass,
 } from "./Step3.styles";
 
+type Step3WithSetters = Step3Props & {
+  setHeaders: React.Dispatch<React.SetStateAction<HeaderGroup[]>>;
+};
+
 export default function Step3({
   headers,
   setHeaders,
   data,
   setData,
   onNext,
-}: Step3Props & { setHeaders: React.Dispatch<React.SetStateAction<HeaderGroup[]>> }) {
-  const [fileName, setFileName] = useState("");
+}: Step3WithSetters) {
+  const [fileName, setFileName] = useState<string>("");
 
   const handleExport = useCallback(async () => {
-    await handleExportLogic({ headers, data, fileName });
+    if (!fileName.trim()) return; // evita export sem nome
+    try {
+      await handleExportLogic({ headers, data, fileName });
+    } catch (err) {
+      console.error("Erro ao exportar tabela:", err);
+    }
   }, [headers, data, fileName]);
 
   const handleFileNameChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
-      setFileName(e.target.value);
+      setFileName(e.target.value ?? "");
     },
     []
   );
+
+  const handleNext = useCallback(() => {
+    if (typeof onNext === "function") {
+      onNext();
+    }
+  }, [onNext]);
 
   return (
     <div className={containerClass}>
       <h2 className={titleClass}>Monte sua Tabela</h2>
 
       <EditableTable
-        headers={headers}
-        data={data}
-        setHeaders={setHeaders} // altera o estado do Home
+        headers={headers ?? []}
+        data={data ?? []}
+        setHeaders={setHeaders}
         setData={setData}
       />
 
       <div className="flex justify-between mt-4">
         <button
-          onClick={onNext}
+          onClick={handleNext}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
           Ir para Etapa 4
@@ -60,7 +75,11 @@ export default function Step3({
           onChange={handleFileNameChange}
           className={inputClass}
         />
-        <button onClick={handleExport} className={exportButtonClass}>
+        <button
+          onClick={handleExport}
+          className={exportButtonClass}
+          disabled={!fileName.trim()}
+        >
           Gerar Tabela Excel
         </button>
       </div>
